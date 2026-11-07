@@ -4,10 +4,29 @@ Includes advanced secret recognition, dangerous execution analysis,
 unsafe deserialization, weak cryptographic hashing, and false-positive suppression.
 """
 
+import ast
 import re
-from typing import Any, Dict, List
+from typing import Optional, Any, Dict, List
 
 DISCLAIMER = "Static security heuristics assist in identifying exposure risks, but do not provide a mathematical guarantee of safety."
+
+def check_python_syntax(content: str) -> Optional[Dict[str, Any]]:
+    """Return None if the code parses as Python, otherwise details of the first syntax error."""
+    try:
+        ast.parse(content)
+        return None
+    except SyntaxError as err:
+        line_no = err.lineno or 1
+        lines = content.splitlines()
+        snippet = lines[line_no - 1].strip()[:160] if 0 < line_no <= len(lines) else ""
+        return {
+            "line_number": line_no,
+            "message": err.msg or "invalid syntax",
+            "snippet": snippet,
+        }
+    except (ValueError, TypeError) as err:  # e.g. null bytes in the source
+        return {"line_number": 1, "message": str(err), "snippet": ""}
+
 
 class VerificationService:
     def __init__(self):
@@ -152,9 +171,31 @@ class VerificationService:
             return "****"
         return f"{secret[:4]}{'*' * (len(secret) - 8)}{secret[-4:]}"
 
+    def _redact_text(self, text: str) -> str:
+        """Mask any secret-looking values in a line before it is shown or stored."""
+        for rule in self.secret_rules:
+            for match in rule["pattern"].finditer(text):
+                value = match.group(1) if match.groups() else match.group(0)
+                if not self._is_placeholder(value):
+                    text = text.replace(value, self._mask_secret(value))
+        return text
+
     def analyze_code(self, content: str, filename: str = "") -> List[Dict[str, Any]]:
         findings = []
         lines = content.splitlines()
+
+        # Syntax: code that does not parse can never be run, so it is reported as a failure.
+        syntax_error = check_python_syntax(content)
+        if syntax_error:
+            findings.append({
+                "rule_id": "PYTHON_SYNTAX_ERROR",
+                "rule_name": "Python syntax error",
+                "severity": "high",
+                "line_number": syntax_error["line_number"],
+                "line_snippet": self._redact_text(syntax_error["snippet"]),
+                "description": f"The code does not parse as Python: {syntax_error['message']}. It cannot be run until this is fixed. {DISCLAIMER}",
+                "remediation": "Fix the syntax error at the reported line, then verify again.",
+            })
 
         # Check secret rules line-by-line
         for line_num, line in enumerate(lines, start=1):

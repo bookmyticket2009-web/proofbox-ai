@@ -60,34 +60,41 @@ except ImportError:
         verification_service = None
 
 def run_verify_code(code: str, filename: str = "snippet.py") -> dict:
-    if verification_service:
-        if hasattr(verification_service, "verify_code"):
-            try:
-                return verification_service.verify_code(code)
-            except TypeError:
-                return verification_service.verify_code(code, filename=filename)
-        elif hasattr(verification_service, "VerificationService"):
-            verifier = verification_service.VerificationService()
-            findings = verifier.analyze_code(content=code, filename=filename)
-            return {
-                "status": "passed" if len(findings) == 0 else "failed",
-                "syntax_valid": True,
-                "is_safe": len(findings) == 0,
-                "total_findings": len(findings),
-                "findings": findings,
-                "checks": {
-                    "code_size": f"{len(code.encode('utf-8'))} bytes",
-                    "syntax": "Valid"
-                }
-            }
+    """Run the static checks. Never reports 'passed' unless the code parses and no rule fired."""
+    code_size = f"{len(code.encode('utf-8'))} bytes"
+
+    if not verification_service or not hasattr(verification_service, "VerificationService"):
+        # The verifier did not load. Say so, instead of quietly approving the code.
+        return {
+            "status": "error",
+            "syntax_valid": False,
+            "is_safe": False,
+            "total_findings": 0,
+            "findings": [],
+            "checks": {"code_size": code_size, "syntax": "Verifier unavailable"},
+            "error": "The static verifier is not loaded on the server.",
+        }
+
+    verifier = verification_service.VerificationService()
+    syntax_error = verification_service.check_python_syntax(code)
+    findings = verifier.analyze_code(content=code, filename=filename)
+    syntax_valid = syntax_error is None
+    is_safe = syntax_valid and len(findings) == 0
+
+    if syntax_error:
+        syntax_text = f"Error on line {syntax_error['line_number']}: {syntax_error['message']}"
+    else:
+        syntax_text = "Valid"
+
     return {
-        "status": "passed",
-        "syntax_valid": True,
-        "is_safe": True,
-        "total_findings": 0,
-        "findings": [],
-        "checks": {"code_size": f"{len(code.encode('utf-8'))} bytes", "syntax": "Valid"}
+        "status": "passed" if is_safe else "failed",
+        "syntax_valid": syntax_valid,
+        "is_safe": is_safe,
+        "total_findings": len(findings),
+        "findings": findings,
+        "checks": {"code_size": code_size, "syntax": syntax_text},
     }
+
 
 try:
     from app.services.export_service import build_sarif
@@ -155,6 +162,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 class CodeGenerationRequest(BaseModel):
     task: Optional[str] = None
