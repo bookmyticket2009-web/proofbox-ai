@@ -2,7 +2,7 @@
 
 ProofBox AI is a security-focused coding platform. It generates Python code with an AI model, checks code for risky patterns before anything runs, scans public GitHub repositories for leaked secrets and dangerous code, and runs code on a disposable, network-isolated Linux server on Vultr.
 
-It is built for the Vultr Agent Rush **Blast Radius Zero** track: every action that runs code stays inside a contained sandbox.
+It is built for the Vultr Agent Rush **Blast Radius Zero** track: every action that runs code stays inside a contained sandbox on Vultr.
 
 ---
 
@@ -38,6 +38,35 @@ ProofBox AI is designed so that untrusted code never runs on your own machine.
 **Limits to be aware of:** this is a first-pass pattern scanner, not a complete SAST engine or malware detector. A clean result does not prove that a repository or program is safe. Containers and VMs share kernels with their host, so the sandbox relies on the VM boundary plus the controls above.
 
 ---
+
+## How Vultr is used
+
+**Vultr Cloud Compute (sandbox server).** Every piece of code that ProofBox AI runs executes on a Vultr Cloud Compute instance, not on the machine running the dashboard. The instance is a Shared CPU plan running Debian 13 in the Atlanta region. It is connected to the backend over SSH with key authentication only.
+
+What the instance does for the project:
+
+- **Isolated execution.** Code is run by an unprivileged `sandbox` user with no sudo access and no shared secrets on the machine.
+- **Network containment.** An iptables rule blocks all outbound traffic from the `sandbox` user. The setup script tests this by trying to reach the internet from inside the sandbox and fails if the connection succeeds.
+- **Per-run limits.** Each run has a timeout, a memory cap, an output cap, a process cap, and a file-size cap. The run's temporary folder is deleted afterwards, and the result reports whether cleanup was confirmed.
+- **Readiness checks.** The dashboard's **Execution environment** card reports **READY** only when connection, cleanup, and network isolation all pass in a live check.
+
+The sandbox setup is a single script, [`deploy/setup_sandbox_vm.sh`](deploy/setup_sandbox_vm.sh), which runs once on a new instance.
+
+**What is not yet on Vultr.** The dashboard and API run on the developer's machine. Hosting them on a Vultr instance is planned. AI generation uses Ollama Cloud, not Vultr Serverless Inference. Vultr's API is not yet used to create or destroy sandbox instances automatically.
+
+---
+
+## The agent and what it does
+
+ProofBox AI is a human-supervised execution agent. The workflow is:
+
+1. The user describes a task. Ollama Cloud writes Python code for it.
+2. ProofBox AI checks the code statically, without running it, and reports any risky patterns.
+3. The user reviews the code and clicks **Run in sandbox**.
+4. The code runs on the Vultr instance under the containment controls above.
+5. The stdout, stderr, exit code, timing, and cleanup status are returned and saved to the job history.
+
+The agent does not run code on its own. Each run needs a user click, so a person stays in control of what executes.
 
 ## Project structure
 
