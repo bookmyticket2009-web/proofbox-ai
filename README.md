@@ -14,7 +14,7 @@ Built for the **Vultr Agent Rush**, **Blast Radius Zero** track: the agent does 
 | **Cloud Compute (sandbox)** | A dedicated Debian 13 server in Atlanta runs all user code. It is reached over SSH with key authentication only. |
 | **Reserved IPv4** | A static public address for the sandbox server, so the hosted dashboard can reach it. |
 
-**Where the web app runs.** The dashboard and API are currently hosted on Render (`https://proofbox-ai.onrender.com`). Hosting them on a Vultr Cloud Compute instance is the next step, and the Vultr setup for that is documented in the Roadmap below.
+**Where the web app runs.** The dashboard and API run on a Vultr Cloud Compute instance in Atlanta, served at `http://64.177.41.171:8000` on a reserved IPv4 address. They run as a `systemd` service, which restarts on boot, under a separate `proofbox-web` system user. The sandbox runs on a second Vultr instance, the same as above. Both instances use Debian 13.
 
 ---
 
@@ -24,7 +24,7 @@ Built for the **Vultr Agent Rush**, **Blast Radius Zero** track: the agent does 
  User (browser)
      |
      v
- Dashboard + FastAPI backend (Render today, Vultr next)
+ Dashboard + FastAPI backend (Vultr Cloud Compute)
      |                    |                         |
      | generate code      | verify code             | run code over SSH
      v                    v (no execution)         v
@@ -228,7 +228,7 @@ python tests/test_github_scanner_v2.py
 
 ## Roadmap
 
-1. **Host the dashboard on a Vultr Cloud Compute instance**, behind a reserved IP, with a service that restarts on boot. This meets the requirement that the web application runs on Vultr.
+1. Serve the dashboard over HTTPS with a domain name, instead of plain HTTP on port 8000.
 2. Connect generation directly to the sandbox, so the agent can write, check, and run code in one flow.
 3. Add "Fix with AI", which re-checks the patched code before showing it.
 4. Add diff scanning, dependency checks, and finding suppression with a required reason.
