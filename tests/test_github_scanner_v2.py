@@ -229,7 +229,7 @@ def test_ai_status_reports_missing_key_without_calling_provider():
 
 
 def test_ai_status_unsupported_provider():
-    result = _status_with({"AI_PROVIDER": "vultr", "OLLAMA_API_KEY": "k"})
+    result = _status_with({"AI_PROVIDER": "azure", "OLLAMA_API_KEY": "k"})
     assert result["state"] == "unsupported"
 
 
@@ -258,6 +258,21 @@ def test_ai_status_unreachable():
     result = _status_with({"AI_PROVIDER": "ollama", "OLLAMA_API_KEY": "k"},
                           urlopen_side_effect=URLError("no route"))
     assert result["state"] == "unreachable"
+
+
+def test_missing_colon_is_a_syntax_error():
+    from app.services.verification_service import check_python_syntax
+    bad = 'def test_error_handling()\n    print("Missing a colon on the def line")\n'
+    error = check_python_syntax(bad)
+    assert error is not None and error["line_number"] == 1, error
+    findings = VerificationService().analyze_code(bad, "t.py")
+    assert any(f["rule_id"] == "PYTHON_SYNTAX_ERROR" and f["line_number"] == 1 for f in findings), findings
+
+
+def test_valid_code_has_no_syntax_error():
+    from app.services.verification_service import check_python_syntax
+    assert check_python_syntax("def f(x):\n    return x + 1\n") is None
+
 
 
 if __name__ == "__main__":
