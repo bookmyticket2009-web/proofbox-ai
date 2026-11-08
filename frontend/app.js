@@ -298,10 +298,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderSandboxResult(data) {
         if (!sbResult) return;
+        // "completed" only means the script finished. A nonzero exit code is a failed run.
+        const verdictKey = data.status === "completed" && data.exit_code !== 0 ? "failed" : data.status;
         const verdictText = {
-            completed: "COMPLETED", failed: "FAILED", error: "ERROR",
+            completed: "COMPLETED", error: "ERROR",
             timed_out: "TIMED OUT", output_limit_exceeded: "OUTPUT LIMIT HIT",
-        }[data.status] || String(data.status || "UNKNOWN").toUpperCase();
+        }[verdictKey] || (verdictKey === "failed" ? `FAILED (exit code ${data.exit_code})` : String(verdictKey || "UNKNOWN").toUpperCase());
 
         const meta = document.createElement("div");
         meta.className = "sandbox-meta";
@@ -322,7 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         sbResult.replaceChildren();
-        sbResult.appendChild(sbText("div", `sandbox-verdict ${data.status || "error"}`, verdictText));
+        sbResult.appendChild(sbText("div", `sandbox-verdict ${verdictKey || "error"}`, verdictText));
         sbResult.appendChild(meta);
 
         const addBlock = (title, text, isError) => {

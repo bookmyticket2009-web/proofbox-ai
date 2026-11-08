@@ -11,6 +11,9 @@ Environment variables
   SANDBOX_KEY_PATH    path to the SSH private key file (required)
   SANDBOX_PORT        SSH port, default 22
   SANDBOX_SSH_BIN     ssh executable, default "ssh" (used by tests)
+  SANDBOX_KNOWN_HOSTS_FILE  optional file with the sandbox's pinned host key;
+                            used instead of the default known_hosts (needed on hosts
+                            such as Render that have no home .ssh folder)
 """
 
 import ipaddress
@@ -55,6 +58,9 @@ def load_config() -> Dict[str, str]:
     key = os.getenv("SANDBOX_KEY_PATH", "").strip()
     port = os.getenv("SANDBOX_PORT", "22").strip()
     ssh_bin = os.getenv("SANDBOX_SSH_BIN", "ssh").strip() or "ssh"
+    known_hosts = os.getenv("SANDBOX_KNOWN_HOSTS_FILE", "").strip()
+    if known_hosts and not os.path.isfile(known_hosts):
+        raise SandboxConfigError("SANDBOX_KNOWN_HOSTS_FILE must point to an existing file.")
 
     if not host:
         raise SandboxConfigError("SANDBOX_HOST is not set.")
@@ -67,7 +73,8 @@ def load_config() -> Dict[str, str]:
     if not port.isdigit() or not (1 <= int(port) <= 65535):
         raise SandboxConfigError("SANDBOX_PORT must be a number between 1 and 65535.")
 
-    return {"host": host, "user": user, "key": key, "port": port, "ssh_bin": ssh_bin}
+    return {"host": host, "user": user, "key": key, "port": port, "ssh_bin": ssh_bin,
+            "known_hosts": known_hosts}
 
 
 def _clamp_timeout(timeout: Optional[int]) -> int:
@@ -145,6 +152,7 @@ def run_python(code: str, timeout: Optional[int] = None) -> Dict[str, Any]:
         "-p", cfg["port"],
         "-o", "BatchMode=yes",                 # never prompt for a password
         "-o", "StrictHostKeyChecking=yes",     # refuse unknown or changed host keys
+        *(["-o", f"UserKnownHostsFile={cfg['known_hosts']}"] if cfg["known_hosts"] else []),
         "-o", "ConnectTimeout=10",
         "-o", "ServerAliveInterval=5",
         f"{cfg['user']}@{cfg['host']}",
