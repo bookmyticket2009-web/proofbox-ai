@@ -1215,10 +1215,39 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------------------------------------------
     // General Actions
     // -------------------------------------------------------------
+    // Copies text on any origin. The modern clipboard API needs HTTPS or localhost,
+    // so over plain HTTP we fall back to a hidden textarea and execCommand("copy").
+    async function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (err) {
+                // fall through to the fallback below
+            }
+        }
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.top = "-1000px";
+        document.body.appendChild(area);
+        area.select();
+        let ok = false;
+        try {
+            ok = document.execCommand("copy");
+        } catch (err) {
+            ok = false;
+        }
+        document.body.removeChild(area);
+        return ok;
+    }
+
     if (copyBtn) {
         copyBtn.addEventListener("click", async () => {
             if (!codeEditor || !codeEditor.value) { showToast("No code to copy."); return; }
-            await navigator.clipboard.writeText(codeEditor.value);
+            const copied = await copyText(codeEditor.value);
+            if (!copied) { showToast("Copy failed. Select the code and press Ctrl+C.", "warn"); return; }
             copyBtn.textContent = "Copied!";
             setTimeout(() => { copyBtn.textContent = "Copy code"; }, 1500);
         });
