@@ -864,6 +864,33 @@
             font: 12.5px/1.6 'JetBrains Mono', monospace; color: #d4e6f5;
         }
         .sandbox-block.err pre { color: var(--red); }
+
+        /* Sandbox panel layout: full-width editor, clean toolbar */
+        #sandboxView .scanner-controls { padding: 20px; }
+        #sandboxView .control-field { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+        #sandboxView .control-field > label {
+            font-size: 11px; letter-spacing: 1.4px; color: var(--muted); font-weight: 600;
+        }
+        #sandboxView .sandbox-code {
+            width: 100%; min-height: 300px; box-sizing: border-box; font-size: 13.5px; line-height: 1.7;
+            border-radius: 14px; padding: 16px 18px;
+        }
+        #sandboxView .sandbox-actions {
+            width: 100%; display: flex; justify-content: space-between; align-items: center;
+            gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+        }
+        #sandboxView .sandbox-actions .control-field {
+            width: auto; flex-direction: row; align-items: center; gap: 12px;
+        }
+        #sandboxView .sandbox-actions .control-field > label { white-space: nowrap; margin: 0; }
+        #sandboxView .sandbox-actions input { width: 90px; text-align: center; font-size: 15px; font-weight: 700; }
+        #sandboxView .sandbox-run-btn { min-width: 220px; padding: 13px 26px; font-size: 15px; }
+        #sandboxView .sandbox-result { margin-top: 22px; }
+        #sandboxView .sandbox-block pre { font-size: 13px; }
+        @media (max-width: 700px) {
+            #sandboxView .sandbox-actions { flex-direction: column; align-items: stretch; }
+            #sandboxView .sandbox-run-btn { width: 100%; }
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
 </head>
