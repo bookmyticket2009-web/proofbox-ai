@@ -34,14 +34,25 @@ import time
 
 RUNNER_VERSION = "1.0"
 
+# Interpreter for user code. On the sandbox server this is a virtual environment that
+# holds the full library set; elsewhere (tests, local runs) the runner's own Python is used.
+USER_PYTHON_CANDIDATES = ["/opt/proofbox/venv/bin/python"]
+
 MAX_REQUEST_BYTES = 64 * 1024          # JSON wrapper around the code; code limit is checked separately
 MAX_CODE_BYTES = 20 * 1000
 MAX_OUTPUT_BYTES = 64 * 1024
 MAX_FILE_BYTES = 1024 * 1024            # RLIMIT_FSIZE: output files may not exceed this
-MEMORY_BYTES = 256 * 1024 * 1024        # RLIMIT_AS: address space for the user code
+MEMORY_BYTES = 1536 * 1024 * 1024       # RLIMIT_AS: address space for the user code (needs a 2 GB server)
 MAX_PROCESSES = 32                      # RLIMIT_NPROC: stops fork bombs
 DEFAULT_TIMEOUT = 10
 MAX_TIMEOUT = 30
+
+
+def user_python():
+    for candidate in USER_PYTHON_CANDIDATES:
+        if os.path.exists(candidate):
+            return candidate
+    return sys.executable
 
 
 def utc_now():
@@ -140,7 +151,7 @@ def execute(code, timeout):
 
         with open(stdout_path, "wb") as out_handle, open(stderr_path, "wb") as err_handle:
             proc = subprocess.Popen(
-                [sys.executable, "-I", script_path],
+                [user_python(), "-I", script_path],
                 cwd=workdir,
                 stdin=subprocess.DEVNULL,
                 stdout=out_handle,
